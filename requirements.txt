@@ -1,0 +1,14 @@
+﻿pyyaml
+python-dotenv
+fastapi>=0.110.0
+uvicorn[standard]
+langgraph
+qdrant-client
+sentence-transformers
+onnxruntime
+huggingface_hub
+tokenizers
+pandas
+pyarrow
+jsonlines
+pytest
