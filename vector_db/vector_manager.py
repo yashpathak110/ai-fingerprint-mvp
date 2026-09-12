@@ -1,5 +1,5 @@
 from qdrant_client import QdrantClient
-from qdrant_client.http.models import Distance, VectorParams
+from qdrant_client.http.models import Distance, VectorParams, PointStruct
 import os
 
 class VectorDBManager:
@@ -7,12 +7,10 @@ class VectorDBManager:
         self.collection_name = collection_name
         self.vector_size = vector_size
         
-        # Connect to local/in-memory or remote Qdrant
         qdrant_host = os.getenv("QDRANT_HOST", "localhost")
         qdrant_port = int(os.getenv("QDRANT_PORT", 6333))
-        
-        # Fallback to local in-memory store if no remote URL provided
         qdrant_url = os.getenv("QDRANT_URL")
+        
         if qdrant_url:
             self.client = QdrantClient(url=qdrant_url, api_key=os.getenv("QDRANT_API_KEY"))
         else:
@@ -33,9 +31,7 @@ class VectorDBManager:
             print(f"Failed to initialize collection {self.collection_name}: {e}")
 
     def upsert_vectors(self, vectors, payloads):
-        from qdrant_client.http.models import PointStruct
         import uuid
-        
         points = [
             PointStruct(
                 id=str(uuid.uuid4()),
@@ -45,3 +41,29 @@ class VectorDBManager:
             for vec, payload in zip(vectors, payloads)
         ]
         self.client.upsert(collection_name=self.collection_name, points=points)
+
+    def search_similar(self, query_vector, top_k=3):
+        """Perform cosine similarity search against indexed fingerprints."""
+        try:
+            vector_list = query_vector.tolist() if hasattr(query_vector, 'tolist') else query_vector
+            if isinstance(vector_list[0], list):
+                vector_list = vector_list[0]
+                
+            results = self.client.search(
+                collection_name=self.collection_name,
+                query_vector=vector_list,
+                limit=top_k
+            )
+            
+            formatted_results = []
+            for hit in results:
+                formatted_results.append({
+                    "score": hit.score,
+                    "author": hit.payload.get("author", "Unknown"),
+                    "doc_id": hit.payload.get("doc_id", "Unknown"),
+                    "text": hit.payload.get("text", "")
+                })
+            return formatted_results
+        except Exception as e:
+            print(f"Vector search failed: {e}")
+            return []
