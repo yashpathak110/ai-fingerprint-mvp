@@ -1,5 +1,7 @@
+﻿
 .venv/
-__pycache__/
-*.pyc
-data/qdrant_storage/
-.DS_Store
+pycache/
+.pyc
+.env
+models/.json
+qdrant_storage/

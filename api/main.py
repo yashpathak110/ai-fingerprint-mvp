@@ -1,76 +1,42 @@
-from fastapi import FastAPI, HTTPException
+﻿from fastapi import FastAPI, HTTPException
 from pydantic import BaseModel
-from typing import List, Optional
-
-from data.loader import DataProcessor
-from training.embedder import TextEmbedder
 from vector_db.vector_manager import VectorDBManager
+from graph.nodes.app import FingerprintPipeline
 
-app = FastAPI(
-    title="AI Fingerprint MVP API",
-    description="Local-first API for text embedding, ingestion, and fingerprint similarity search.",
-    version="1.0.0"
-)
+app = FastAPI(title="AI-Fingerprint-MVP")
 
-embedder = TextEmbedder()
-processor = DataProcessor(chunk_size=100, overlap=20)
+db = VectorDBManager()
+pipeline = FingerprintPipeline(db_manager=db)
 
 class IngestRequest(BaseModel):
     id: str
-    author: Optional[str] = "unknown"
+    author: str
     text: str
 
 class SearchRequest(BaseModel):
     text: str
-    top_k: Optional[int] = 3
+    top_k: int = 3
 
 @app.get("/")
-def read_root():
-    return {"status": "online", "message": "AI Fingerprint API running local-first."}
+def health_check():
+    return {"status": "online", "engine": "AI-Fingerprint-MVP"}
 
 @app.post("/ingest")
-def ingest_document(payload: IngestRequest):
+def ingest_text(req: IngestRequest):
     try:
-        db = VectorDBManager()
-        chunks = processor.chunk_text(payload.text, source_id=payload.id)
-        
-        texts = [c["text"] for c in chunks]
-        vectors = embedder.embed_texts(texts)
-        
-        ids = [abs(hash(c["chunk_id"])) % (10**8) for c in chunks]
-        payloads = [
-            {
-                "doc_id": payload.id,
-                "chunk_id": c["chunk_id"],
-                "author": payload.author,
-                "text": c["text"]
-            }
-            for c in chunks
-        ]
-        
-        db.upsert_fingerprints(ids=ids, vectors=vectors, payloads=payloads)
-        db.close()
-        
-        return {
-            "status": "success",
-            "doc_id": payload.id,
-            "chunks_processed": len(chunks)
-        }
+        from training.embedder import TextEmbedder
+        embedder = TextEmbedder()
+        vectors = embedder.embed_texts([req.text])
+        payloads = [{"doc_id": req.id, "author": req.author, "text": req.text}]
+        db.upsert_vectors(vectors, payloads)
+        return {"status": "success", "chunks_processed": 1}
     except Exception as e:
         raise HTTPException(status_code=500, detail=str(e))
 
 @app.post("/search")
-def search_fingerprint(payload: SearchRequest):
+def search_fingerprint(req: SearchRequest):
     try:
-        db = VectorDBManager()
-        query_vector = embedder.embed_texts([payload.text])[0]
-        matches = db.search_similar(query_vector=query_vector, top_k=payload.top_k)
-        db.close()
-        
-        return {
-            "status": "success",
-            "query": payload.text,
-            "matches": matches
-        }
+        verdict = pipeline.process(query_text=req.text, top_k=req.top_k)
+        return {"verdict": {"final_verdict": verdict}}
     except Exception as e:
         raise HTTPException(status_code=500, detail=str(e))
