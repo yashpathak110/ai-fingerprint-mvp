@@ -6,17 +6,16 @@ import plotly.graph_objects as go
 import spacy
 import numpy as np
 
+# Load pre-installed spaCy package directly
 try:
     nlp = spacy.load("en_core_web_sm")
-except OSError:
-    from spacy.cli import download
-    download("en_core_web_sm")
-    nlp = spacy.load("en_core_web_sm")
+except Exception:
+    import en_core_web_sm
+    nlp = en_core_web_sm.load()
 
 st.set_page_config(page_title="AI vs Human Fingerprint Engine", layout="wide")
 
-# Fallback to local 8001 if no environment variable is provided
-API_URL = os.getenv("API_URL", "http://127.0.0.1:8001").rstrip("/")
+API_URL = os.getenv("API_URL", "https://ai-fingerprint-mvp-1.onrender.com").rstrip("/")
 
 def extract_features(text: str):
     doc = nlp(text)
