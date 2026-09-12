@@ -13,8 +13,7 @@ except Exception:
     nlp = en_core_web_sm.load()
 
 st.set_page_config(
-    page_title="AI vs Human Stylometric Engine",
-    page_icon="???",
+    page_title="AI vs Human Authorship Authentication",
     layout="wide"
 )
 
@@ -33,14 +32,14 @@ def extract_features(text: str):
     punct = sum(1 for t in doc if t.is_punct) / len(doc)
     return round(ttr, 3), round(avg_len, 2), round(burstiness, 2), round(punct, 3)
 
-# Main App Header
-st.title("??? AI vs Human Document Forensics Engine")
-st.caption("Multi-Stage Stylometric Profiling & Vector Memory Matching")
+# App Title & Subtitle
+st.title("AI vs Human Authorship Authentication Platform")
+st.markdown("Forensic Engine for Hybrid Vector Semantic Matching & Stylometric Profiling")
 
-tab1, tab2 = st.tabs(["?? Analyze & Detect PDF/Text", "?? Ingest Known Seed Data"])
+tab1, tab2 = st.tabs(["Analyze & Detect PDF/Text", "Ingest Seed PDF Data"])
 
 with tab1:
-    st.subheader("Document Forensic Analysis")
+    st.subheader("Document Verification & Authentication")
     input_type = st.radio("Choose Input Type:", ["PDF Document Upload", "Direct Text Snippet"], horizontal=True)
     
     query_text = ""
@@ -49,14 +48,14 @@ with tab1:
         if uploaded_file:
             doc = fitz.open(stream=uploaded_file.read(), filetype="pdf")
             query_text = "".join([page.get_text() for page in doc])
-            with st.expander("?? Preview Extracted PDF Text"):
+            with st.expander("Preview Extracted PDF Text"):
                 st.write(query_text[:1500] + ("..." if len(query_text) > 1500 else ""))
     else:
         query_text = st.text_area("Paste text content here:", height=160, placeholder="Paste article or PDF text...")
 
-    if st.button("?? Scan for AI Patterns", type="primary", use_container_width=True):
+    if st.button("Run Authentication Scan", type="primary", use_container_width=True):
         if not query_text.strip():
-            st.warning("?? Please upload a valid PDF or paste text to perform analysis.")
+            st.warning("Please upload a valid PDF or paste text to perform analysis.")
         else:
             with st.spinner("Analyzing stylometrics and comparing vector signatures..."):
                 try:
@@ -74,20 +73,19 @@ with tab1:
 
                         st.markdown("---")
                         
-                        # Top Verdict Banner
                         v_col1, v_col2 = st.columns([1, 2])
                         with v_col1:
                             if "AI" in author or ai_prob >= 0.50:
-                                st.error(f"### ?? Prediction: AI Generated")
+                                st.error("### Verdict: AI Generated Content")
                             else:
-                                st.success(f"### ?? Prediction: Human Written")
+                                st.success("### Verdict: Authentic Human Writing")
                             st.write(f"**Classification:** {status}")
 
                         with v_col2:
                             fig_gauge = go.Figure(go.Indicator(
                                 mode="gauge+number",
                                 value=ai_prob * 100,
-                                title={'text': "AI Likelihood Score (%)"},
+                                title={'text': "AI Score (%)"},
                                 gauge={
                                     'axis': {'range': [0, 100]},
                                     'bar': {'color': "#ff4b4b" if ai_prob >= 0.5 else "#00c853"},
@@ -101,32 +99,30 @@ with tab1:
                             fig_gauge.update_layout(height=220, margin=dict(l=10, r=10, t=30, b=10))
                             st.plotly_chart(fig_gauge, use_container_width=True)
 
-                        # Stylometric Features Section
                         ttr, avg_len, burstiness, punct = extract_features(query_text)
-                        st.markdown("### ?? Stylometric Fingerprint Breakdown")
+                        st.markdown("### Stylometric Metrics Breakdown")
                         
                         m1, m2, m3, m4 = st.columns(4)
-                        m1.metric("Vocabulary Diversity (TTR)", f"{ttr}", help="Lower values indicate repetitive AI-like vocabulary.")
-                        m2.metric("Avg Sentence Length", f"{avg_len} words", help="LLMs average around 15-22 words/sentence.")
-                        m3.metric("Burstiness (Variance)", f"{burstiness}", help="Human writing has high sentence length variation (> 6.0).")
+                        m1.metric("Vocabulary Diversity (TTR)", f"{ttr}")
+                        m2.metric("Avg Sentence Length", f"{avg_len} words")
+                        m3.metric("Burstiness (Variance)", f"{burstiness}")
                         m4.metric("Punctuation Density", f"{punct}")
 
-                        # Radar Chart Comparison
-                        categories = ['Vocabulary Diversity', 'Sentence Length Norm', 'Burstiness Variance', 'Punctuation']
+                        categories = ['Vocabulary Diversity', 'Sentence Length', 'Burstiness Variance', 'Punctuation']
                         fig_radar = go.Figure()
 
                         fig_radar.add_trace(go.Scatterpolar(
                             r=[ttr * 100, min(avg_len * 3, 100), min(burstiness * 10, 100), punct * 500],
                             theta=categories,
                             fill='toself',
-                            name='Your Uploaded PDF'
+                            name='Your Uploaded Document'
                         ))
 
                         fig_radar.add_trace(go.Scatterpolar(
                             r=[40, 55, 20, 35],
                             theta=categories,
                             fill='toself',
-                            name='Typical GPT-4 Benchmark Signature',
+                            name='GPT Baseline Signature',
                             line=dict(dash='dash', color='orange')
                         ))
 
@@ -143,9 +139,7 @@ with tab1:
                     st.error(f"Connection Failed: {str(e)}")
 
 with tab2:
-    st.subheader("Ingest Reference Ground Truth Data")
-    st.caption("Add known human articles or known ChatGPT outputs into Qdrant memory.")
-    
+    st.subheader("Ingest Reference Data")
     author_name = st.text_input("Author Label:", value="LLM_ChatGPT")
     doc_id = st.text_input("Document ID:", value="doc_001")
     pdf_to_ingest = st.file_uploader("Upload Seed PDF", type=["pdf"], key="ingest_pdf")

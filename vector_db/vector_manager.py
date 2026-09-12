@@ -43,10 +43,9 @@ class VectorDBManager:
         self.client.upsert(collection_name=self.collection_name, points=points)
 
     def search_similar(self, query_vector, top_k=3):
-        """Perform cosine similarity search against indexed fingerprints."""
         try:
             vector_list = query_vector.tolist() if hasattr(query_vector, 'tolist') else query_vector
-            if isinstance(vector_list[0], list):
+            if isinstance(vector_list, list) and len(vector_list) > 0 and isinstance(vector_list[0], list):
                 vector_list = vector_list[0]
                 
             results = self.client.search(
