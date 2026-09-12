@@ -1,7 +1,6 @@
-﻿
-.venv/
-pycache/
-.pyc
+﻿.venv/
+__pycache__/
+*.pyc
 .env
-models/.json
+models/*.json
 qdrant_storage/
