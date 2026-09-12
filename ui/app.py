@@ -1,4 +1,5 @@
-﻿import streamlit as st
+﻿import os
+import streamlit as st
 import requests
 import fitz  # PyMuPDF
 import plotly.graph_objects as go
@@ -13,7 +14,9 @@ except OSError:
     nlp = spacy.load("en_core_web_sm")
 
 st.set_page_config(page_title="AI vs Human Fingerprint Engine", layout="wide")
-API_URL = "http://127.0.0.1:8001"
+
+# Fallback to local 8001 if no environment variable is provided
+API_URL = os.getenv("API_URL", "http://127.0.0.1:8001").rstrip("/")
 
 def extract_features(text: str):
     doc = nlp(text)
@@ -51,48 +54,50 @@ with tab1:
             st.warning("Please provide valid text or PDF input.")
         else:
             with st.spinner("Analyzing stylometrics and vector space..."):
-                res = requests.post(f"{API_URL}/search", json={"text": query_text, "top_k": 3})
-                if res.status_code == 200:
-                    verdict = res.json().get("verdict", {}).get("final_verdict", {})
-                    
-                    col1, col2, col3 = st.columns(3)
-                    col1.metric("Predicted Author", verdict.get("author", "Unknown"))
-                    col2.metric("Hybrid Score", f"{verdict.get('score', 0.0):.2%}")
-                    col3.metric("Verification Status", verdict.get("status", "N/A"))
+                try:
+                    res = requests.post(f"{API_URL}/search", json={"text": query_text, "top_k": 3})
+                    if res.status_code == 200:
+                        verdict = res.json().get("verdict", {}).get("final_verdict", {})
+                        
+                        col1, col2, col3 = st.columns(3)
+                        col1.metric("Predicted Author", verdict.get("author", "Unknown"))
+                        col2.metric("Hybrid Score", f"{verdict.get('score', 0.0):.2%}")
+                        col3.metric("Verification Status", verdict.get("status", "N/A"))
 
-                    st.markdown("---")
-                    
-                    ttr, avg_len, burstiness, punct = extract_features(query_text)
-                    st.subheader("📊 Stylometric Feature Signatures")
-                    m1, m2, m3, m4 = st.columns(4)
-                    m1.metric("Vocabulary Diversity (TTR)", ttr)
-                    m2.metric("Avg Sentence Length", f"{avg_len} wps")
-                    m3.metric("Burstiness (Variance)", burstiness)
-                    m4.metric("Punctuation Density", punct)
+                        st.markdown("---")
+                        
+                        ttr, avg_len, burstiness, punct = extract_features(query_text)
+                        st.subheader("📊 Stylometric Feature Signatures")
+                        m1, m2, m3, m4 = st.columns(4)
+                        m1.metric("Vocabulary Diversity (TTR)", ttr)
+                        m2.metric("Avg Sentence Length", f"{avg_len} wps")
+                        m3.metric("Burstiness (Variance)", burstiness)
+                        m4.metric("Punctuation Density", punct)
 
-                    # Multi-trace Radar Chart with AI Baseline Benchmark
-                    categories = ['Vocabulary (TTR)', 'Sentence Length', 'Burstiness', 'Punctuation']
-                    fig = go.Figure()
+                        categories = ['Vocabulary (TTR)', 'Sentence Length', 'Burstiness', 'Punctuation']
+                        fig = go.Figure()
 
-                    fig.add_trace(go.Scatterpolar(
-                        r=[ttr * 100, min(avg_len * 3, 100), min(burstiness * 2.5, 100), punct * 500],
-                        theta=categories,
-                        fill='toself',
-                        name='Uploaded Document'
-                    ))
+                        fig.add_trace(go.Scatterpolar(
+                            r=[ttr * 100, min(avg_len * 3, 100), min(burstiness * 2.5, 100), punct * 500],
+                            theta=categories,
+                            fill='toself',
+                            name='Uploaded Document'
+                        ))
 
-                    fig.add_trace(go.Scatterpolar(
-                        r=[45, 54, 15, 40],
-                        theta=categories,
-                        fill='toself',
-                        name='Standard LLM Benchmark (Low Variance)',
-                        line=dict(dash='dash', color='orange')
-                    ))
+                        fig.add_trace(go.Scatterpolar(
+                            r=[45, 54, 15, 40],
+                            theta=categories,
+                            fill='toself',
+                            name='Standard LLM Benchmark (Low Variance)',
+                            line=dict(dash='dash', color='orange')
+                        ))
 
-                    fig.update_layout(polar=dict(radialaxis=dict(visible=True, range=[0, 100])), showlegend=True)
-                    st.plotly_chart(fig, use_container_width=True)
-                else:
-                    st.error(f"Error {res.status_code}: {res.text}")
+                        fig.update_layout(polar=dict(radialaxis=dict(visible=True, range=[0, 100])), showlegend=True)
+                        st.plotly_chart(fig, use_container_width=True)
+                    else:
+                        st.error(f"Error {res.status_code}: {res.text}")
+                except Exception as e:
+                    st.error(f"Could not connect to API at {API_URL}: {str(e)}")
 
 with tab2:
     st.subheader("Ingest Reference Document")
