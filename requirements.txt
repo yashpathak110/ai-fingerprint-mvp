@@ -1,9 +1,12 @@
-﻿fastapi==0.110.0
+﻿--extra-index-url https://download.pytorch.org/whl/cpu
+torch==2.2.1+cpu
+fastapi==0.110.0
 uvicorn==0.28.0
 streamlit==1.32.0
 qdrant-client==1.8.0
 sentence-transformers==2.5.1
 spacy==3.7.4
+https://github.com/explosion/spacy-models/releases/download/en_core_web_sm-3.7.1/en_core_web_sm-3.7.1-py3-none-any.whl
 xgboost==2.0.3
 numpy==1.26.4
 pymupdf==1.23.26
