@@ -1,4 +1,4 @@
-﻿import os
+import os
 import streamlit as st
 import requests
 import fitz  # PyMuPDF
@@ -6,7 +6,7 @@ import plotly.graph_objects as go
 import spacy
 import numpy as np
 
-# Load pre-installed spaCy package directly
+# Load pre-installed spaCy model
 try:
     nlp = spacy.load("en_core_web_sm")
 except Exception:
@@ -30,10 +30,10 @@ def extract_features(text: str):
     punct = sum(1 for t in doc if t.is_punct) / len(doc)
     return round(ttr, 3), round(avg_len, 2), round(burstiness, 2), round(punct, 3)
 
-st.title("📄 AI-vs-Human Stylometric Attribution Engine")
+st.title("?? AI-vs-Human Stylometric Attribution Engine")
 st.markdown("Multi-stage forensic platform analyzing vector semantics and stylometric signatures.")
 
-tab1, tab2 = st.tabs(["🔍 Document Verification", "📥 Ingest Seed PDF"])
+tab1, tab2 = st.tabs(["?? Document Verification", "?? Ingest Seed PDF"])
 
 with tab1:
     st.subheader("Verify Authorship & Fingerprint Breakdown")
@@ -52,9 +52,13 @@ with tab1:
         if not query_text.strip():
             st.warning("Please provide valid text or PDF input.")
         else:
-            with st.spinner("Analyzing stylometrics and vector space..."):
+            with st.spinner("Connecting to API (Render may take up to 60s to wake up on cold start)..."):
                 try:
-                    res = requests.post(f"{API_URL}/search", json={"text": query_text, "top_k": 3})
+                    res = requests.post(
+                        f"{API_URL}/search", 
+                        json={"text": query_text, "top_k": 3},
+                        timeout=120
+                    )
                     if res.status_code == 200:
                         verdict = res.json().get("verdict", {}).get("final_verdict", {})
                         
@@ -66,7 +70,7 @@ with tab1:
                         st.markdown("---")
                         
                         ttr, avg_len, burstiness, punct = extract_features(query_text)
-                        st.subheader("📊 Stylometric Feature Signatures")
+                        st.subheader("?? Stylometric Feature Signatures")
                         m1, m2, m3, m4 = st.columns(4)
                         m1.metric("Vocabulary Diversity (TTR)", ttr)
                         m2.metric("Avg Sentence Length", f"{avg_len} wps")
@@ -94,9 +98,11 @@ with tab1:
                         fig.update_layout(polar=dict(radialaxis=dict(visible=True, range=[0, 100])), showlegend=True)
                         st.plotly_chart(fig, use_container_width=True)
                     else:
-                        st.error(f"Error {res.status_code}: {res.text}")
+                        st.error(f"Backend API Returned Error {res.status_code}: {res.text}")
+                except requests.exceptions.Timeout:
+                    st.error("API request timed out while waiting for Render to wake up. Please try clicking 'Run Verification' again now that the server is awake.")
                 except Exception as e:
-                    st.error(f"Could not connect to API at {API_URL}: {str(e)}")
+                    st.error(f"Connection Failed to {API_URL}: {str(e)}")
 
 with tab2:
     st.subheader("Ingest Reference Document")
@@ -109,6 +115,11 @@ with tab2:
             doc = fitz.open(stream=pdf_to_ingest.read(), filetype="pdf")
             extracted_text = "".join([page.get_text() for page in doc])
             payload = {"id": doc_id, "author": author_name, "text": extracted_text}
-            res = requests.post(f"{API_URL}/ingest", json=payload)
-            if res.status_code == 200:
-                st.success("Successfully indexed in Qdrant Vector Store!")
+            try:
+                res = requests.post(f"{API_URL}/ingest", json=payload, timeout=120)
+                if res.status_code == 200:
+                    st.success("Successfully indexed in Qdrant Vector Store!")
+                else:
+                    st.error(f"Ingest failed ({res.status_code}): {res.text}")
+            except Exception as e:
+                st.error(f"Could not connect to API: {str(e)}")
