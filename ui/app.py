@@ -6,14 +6,17 @@ import plotly.graph_objects as go
 import spacy
 import numpy as np
 
-# Load pre-installed spaCy model
 try:
     nlp = spacy.load("en_core_web_sm")
 except Exception:
     import en_core_web_sm
     nlp = en_core_web_sm.load()
 
-st.set_page_config(page_title="AI vs Human Fingerprint Engine", layout="wide")
+st.set_page_config(
+    page_title="AI vs Human Stylometric Engine",
+    page_icon="???",
+    layout="wide"
+)
 
 API_URL = os.getenv("API_URL", "https://ai-fingerprint-mvp-1.onrender.com").rstrip("/")
 
@@ -30,29 +33,32 @@ def extract_features(text: str):
     punct = sum(1 for t in doc if t.is_punct) / len(doc)
     return round(ttr, 3), round(avg_len, 2), round(burstiness, 2), round(punct, 3)
 
-st.title("?? AI-vs-Human Stylometric Attribution Engine")
-st.markdown("Multi-stage forensic platform analyzing vector semantics and stylometric signatures.")
+# Main App Header
+st.title("??? AI vs Human Document Forensics Engine")
+st.caption("Multi-Stage Stylometric Profiling & Vector Memory Matching")
 
-tab1, tab2 = st.tabs(["?? Document Verification", "?? Ingest Seed PDF"])
+tab1, tab2 = st.tabs(["?? Analyze & Detect PDF/Text", "?? Ingest Known Seed Data"])
 
 with tab1:
-    st.subheader("Verify Authorship & Fingerprint Breakdown")
-    input_type = st.radio("Input Source:", ["Text Prompt", "PDF Upload"])
+    st.subheader("Document Forensic Analysis")
+    input_type = st.radio("Choose Input Type:", ["PDF Document Upload", "Direct Text Snippet"], horizontal=True)
     
     query_text = ""
-    if input_type == "Text Prompt":
-        query_text = st.text_area("Paste snippet here:", height=140)
-    else:
-        uploaded_file = st.file_uploader("Upload PDF", type=["pdf"])
+    if input_type == "PDF Document Upload":
+        uploaded_file = st.file_uploader("Upload PDF File", type=["pdf"], key="verify_pdf")
         if uploaded_file:
             doc = fitz.open(stream=uploaded_file.read(), filetype="pdf")
             query_text = "".join([page.get_text() for page in doc])
+            with st.expander("?? Preview Extracted PDF Text"):
+                st.write(query_text[:1500] + ("..." if len(query_text) > 1500 else ""))
+    else:
+        query_text = st.text_area("Paste text content here:", height=160, placeholder="Paste article or PDF text...")
 
-    if st.button("Run Verification", type="primary"):
+    if st.button("?? Scan for AI Patterns", type="primary", use_container_width=True):
         if not query_text.strip():
-            st.warning("Please provide valid text or PDF input.")
+            st.warning("?? Please upload a valid PDF or paste text to perform analysis.")
         else:
-            with st.spinner("Connecting to API (Render may take up to 60s to wake up on cold start)..."):
+            with st.spinner("Analyzing stylometrics and comparing vector signatures..."):
                 try:
                     res = requests.post(
                         f"{API_URL}/search", 
@@ -60,57 +66,91 @@ with tab1:
                         timeout=120
                     )
                     if res.status_code == 200:
-                        verdict = res.json().get("verdict", {}).get("final_verdict", {})
+                        data = res.json().get("verdict", {}).get("final_verdict", {})
                         
-                        col1, col2, col3 = st.columns(3)
-                        col1.metric("Predicted Author", verdict.get("author", "Unknown"))
-                        col2.metric("Hybrid Score", f"{verdict.get('score', 0.0):.2%}")
-                        col3.metric("Verification Status", verdict.get("status", "N/A"))
+                        ai_prob = data.get("ai_probability", 0.0)
+                        status = data.get("status", "Analyzed")
+                        author = data.get("author", "Unknown")
 
                         st.markdown("---")
                         
+                        # Top Verdict Banner
+                        v_col1, v_col2 = st.columns([1, 2])
+                        with v_col1:
+                            if "AI" in author or ai_prob >= 0.50:
+                                st.error(f"### ?? Prediction: AI Generated")
+                            else:
+                                st.success(f"### ?? Prediction: Human Written")
+                            st.write(f"**Classification:** {status}")
+
+                        with v_col2:
+                            fig_gauge = go.Figure(go.Indicator(
+                                mode="gauge+number",
+                                value=ai_prob * 100,
+                                title={'text': "AI Likelihood Score (%)"},
+                                gauge={
+                                    'axis': {'range': [0, 100]},
+                                    'bar': {'color': "#ff4b4b" if ai_prob >= 0.5 else "#00c853"},
+                                    'steps': [
+                                        {'range': [0, 45], 'color': "lightgreen"},
+                                        {'range': [45, 65], 'color': "yellow"},
+                                        {'range': [65, 100], 'color': "salmon"}
+                                    ]
+                                }
+                            ))
+                            fig_gauge.update_layout(height=220, margin=dict(l=10, r=10, t=30, b=10))
+                            st.plotly_chart(fig_gauge, use_container_width=True)
+
+                        # Stylometric Features Section
                         ttr, avg_len, burstiness, punct = extract_features(query_text)
-                        st.subheader("?? Stylometric Feature Signatures")
+                        st.markdown("### ?? Stylometric Fingerprint Breakdown")
+                        
                         m1, m2, m3, m4 = st.columns(4)
-                        m1.metric("Vocabulary Diversity (TTR)", ttr)
-                        m2.metric("Avg Sentence Length", f"{avg_len} wps")
-                        m3.metric("Burstiness (Variance)", burstiness)
-                        m4.metric("Punctuation Density", punct)
+                        m1.metric("Vocabulary Diversity (TTR)", f"{ttr}", help="Lower values indicate repetitive AI-like vocabulary.")
+                        m2.metric("Avg Sentence Length", f"{avg_len} words", help="LLMs average around 15-22 words/sentence.")
+                        m3.metric("Burstiness (Variance)", f"{burstiness}", help="Human writing has high sentence length variation (> 6.0).")
+                        m4.metric("Punctuation Density", f"{punct}")
 
-                        categories = ['Vocabulary (TTR)', 'Sentence Length', 'Burstiness', 'Punctuation']
-                        fig = go.Figure()
+                        # Radar Chart Comparison
+                        categories = ['Vocabulary Diversity', 'Sentence Length Norm', 'Burstiness Variance', 'Punctuation']
+                        fig_radar = go.Figure()
 
-                        fig.add_trace(go.Scatterpolar(
-                            r=[ttr * 100, min(avg_len * 3, 100), min(burstiness * 2.5, 100), punct * 500],
+                        fig_radar.add_trace(go.Scatterpolar(
+                            r=[ttr * 100, min(avg_len * 3, 100), min(burstiness * 10, 100), punct * 500],
                             theta=categories,
                             fill='toself',
-                            name='Uploaded Document'
+                            name='Your Uploaded PDF'
                         ))
 
-                        fig.add_trace(go.Scatterpolar(
-                            r=[45, 54, 15, 40],
+                        fig_radar.add_trace(go.Scatterpolar(
+                            r=[40, 55, 20, 35],
                             theta=categories,
                             fill='toself',
-                            name='Standard LLM Benchmark (Low Variance)',
+                            name='Typical GPT-4 Benchmark Signature',
                             line=dict(dash='dash', color='orange')
                         ))
 
-                        fig.update_layout(polar=dict(radialaxis=dict(visible=True, range=[0, 100])), showlegend=True)
-                        st.plotly_chart(fig, use_container_width=True)
+                        fig_radar.update_layout(
+                            polar=dict(radialaxis=dict(visible=True, range=[0, 100])),
+                            showlegend=True,
+                            height=380
+                        )
+                        st.plotly_chart(fig_radar, use_container_width=True)
+
                     else:
-                        st.error(f"Backend API Returned Error {res.status_code}: {res.text}")
-                except requests.exceptions.Timeout:
-                    st.error("API request timed out while waiting for Render to wake up. Please try clicking 'Run Verification' again now that the server is awake.")
+                        st.error(f"API Error ({res.status_code}): {res.text}")
                 except Exception as e:
-                    st.error(f"Connection Failed to {API_URL}: {str(e)}")
+                    st.error(f"Connection Failed: {str(e)}")
 
 with tab2:
-    st.subheader("Ingest Reference Document")
-    author_name = st.text_input("Author Label:", value="Human_Architect")
-    doc_id = st.text_input("Document ID:", value="doc_001")
-    pdf_to_ingest = st.file_uploader("Upload Seed PDF", type=["pdf"], key="ingest")
+    st.subheader("Ingest Reference Ground Truth Data")
+    st.caption("Add known human articles or known ChatGPT outputs into Qdrant memory.")
     
-    if st.button("Ingest Document"):
+    author_name = st.text_input("Author Label:", value="LLM_ChatGPT")
+    doc_id = st.text_input("Document ID:", value="doc_001")
+    pdf_to_ingest = st.file_uploader("Upload Seed PDF", type=["pdf"], key="ingest_pdf")
+    
+    if st.button("Ingest into Vector Store", use_container_width=True):
         if pdf_to_ingest:
             doc = fitz.open(stream=pdf_to_ingest.read(), filetype="pdf")
             extracted_text = "".join([page.get_text() for page in doc])
@@ -118,8 +158,8 @@ with tab2:
             try:
                 res = requests.post(f"{API_URL}/ingest", json=payload, timeout=120)
                 if res.status_code == 200:
-                    st.success("Successfully indexed in Qdrant Vector Store!")
+                    st.success("Successfully indexed reference vector in Qdrant!")
                 else:
                     st.error(f"Ingest failed ({res.status_code}): {res.text}")
             except Exception as e:
-                st.error(f"Could not connect to API: {str(e)}")
+                st.error(f"Connection Error: {str(e)}")
