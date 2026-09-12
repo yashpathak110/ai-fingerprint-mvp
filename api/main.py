@@ -1,4 +1,4 @@
-﻿from fastapi import FastAPI, HTTPException
+from fastapi import FastAPI, HTTPException
 from pydantic import BaseModel
 from vector_db.vector_manager import VectorDBManager
 from graph.nodes.app import FingerprintPipeline
