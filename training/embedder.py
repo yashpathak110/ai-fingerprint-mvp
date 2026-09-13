@@ -1,29 +1,19 @@
-from sentence_transformers import SentenceTransformer
-from typing import List
+import torch
+
+# Force single-threaded CPU execution to save RAM
+torch.set_num_threads(1)
 
 class TextEmbedder:
-    """Handles vector embedding generation for AI text fingerprinting."""
+    _model = None
 
-    def __init__(self, model_name: str = "all-MiniLM-L6-v2"):
-        """Initializes the Sentence Transformer model."""
-        print(f"Loading embedding model: {model_name}...")
-        self.model = SentenceTransformer(model_name)
-        print("Model loaded successfully.")
+    @classmethod
+    def get_model(cls):
+        if cls._model is None:
+            from sentence_transformers import SentenceTransformer
+            # Load lightweight 384-dim model
+            cls._model = SentenceTransformer("all-MiniLM-L6-v2")
+        return cls._model
 
-    def embed_texts(self, texts: List[str]) -> List[List[float]]:
-        """Generates embedding vectors for a list of text strings."""
-        if not texts:
-            return []
-        embeddings = self.model.encode(texts, convert_to_numpy=True)
-        return embeddings.tolist()
-
-if __name__ == "__main__":
-    # Quick sanity check
-    embedder = TextEmbedder()
-    sample_texts = [
-        "Artificial intelligence text fingerprinting MVP.",
-        "Testing vector embeddings generation pipeline."
-    ]
-    vectors = embedder.embed_texts(sample_texts)
-    print(f"Generated {len(vectors)} vectors.")
-    print(f"Vector dimension size: {len(vectors[0])}")
+    def embed_texts(self, texts):
+        model = self.get_model()
+        return model.encode(texts, convert_to_numpy=True)
