@@ -7,10 +7,13 @@ RUN apt-get update && apt-get install -y --no-install-recommends \
     && rm -rf /var/lib/apt/lists/*
 
 COPY requirements.txt .
+# Ensure python-multipart is in requirements before deploying!
 RUN pip install --no-cache-dir -r requirements.txt
 
 COPY . .
 
-EXPOSE 8000
+# We can no longer EXPOSE a static port as Render assigns one dynamically.
+# Render automatically handles port exposure based on the assigned PORT variable.
 
-CMD ["uvicorn", "server:app", "--host", "0.0.0.0", "--port", "10000"]
+# Switch CMD to run the python file directly, enabling the port logic we added in Step 1.
+CMD ["python", "server.py"]
