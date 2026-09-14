@@ -1,13 +1,9 @@
-﻿--extra-index-url https://download.pytorch.org/whl/cpu
-
-fastapi==0.110.0
-uvicorn==0.28.0
-pydantic==2.6.4
-python-multipart==0.0.9
-pypdf==4.1.0
-qdrant-client==1.8.0
-spacy==3.7.4
+fastapi
+uvicorn
+spacy
+textstat
+pypdf
+joblib
+scikit-learn
+numpy
 https://github.com/explosion/spacy-models/releases/download/en_core_web_sm-3.7.1/en_core_web_sm-3.7.1-py3-none-any.whl
-sentence-transformers==2.5.1
-torch==2.2.1+cpu
-numpy==1.26.4
